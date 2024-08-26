@@ -285,6 +285,16 @@ class LazySupervisedDataset(Dataset):
 
         return ret
 
+def fix_source(source):
+    if source and source[0]["from"] == "gpt":
+        # Skip if GPT is first to talk
+        source = source[1:]
+    new_source = []
+    for item in source:
+        role = "assistant" if item["from"] == "gpt" else "user"
+        content = item["value"]
+        new_source.append({"role": role, "content": content})
+    return new_source
 
 def make_supervised_data_module(
     tokenizer: transformers.PreTrainedTokenizer, data_args
@@ -302,8 +312,13 @@ def make_supervised_data_module(
         LazySupervisedDataset if data_args.lazy_preprocess else SupervisedDataset
     )
     rank0_print("Loading data...")
-
-    train_json = json.load(open(data_args.data_path, "r"))
+    
+    input_data=[]
+    with open(data_args.data_path, "r") as f:
+        for line in f:
+            input_data.append(json.loads(line))
+    # train_json = json.load(open(data_args.data_path, "r"))
+    train_json = [fix_source(source["conversations"]) for source in input_data]
     train_dataset = dataset_cls(train_json, tokenizer=tokenizer)
 
     if data_args.eval_data_path:
