@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-from transformers import PreTrainedModel, PretrainedConfig
+from transformers import PreTrainedModel, PretrainedConfig, AutoConfig
 from .modeling_llama_kv import LlamaForCausalLM as KVLlamaForCausalLM
+from .modeling_qwen2_kv import LlamaForCausalLM as KVQwen2ForCausalLM
 from .utils import *
 from .kv_cache import initialize_past_key_values
 from .medusa_choices import mc_sim_7b_63
@@ -142,10 +143,16 @@ class MedusaModel(nn.Module):
         if base_model is not None:
             print("Overriding base_model as:", base_model)
             medusa_config.base_model_name_or_path = base_model
-            
-        base_model = KVLlamaForCausalLM.from_pretrained(
-            medusa_config.base_model_name_or_path, **kwargs
-        )
+        
+        model_type = AutoConfig.from_pretrained(medusa_config.base_model_name_or_path).architectures[0]
+        if model_type == 'LlamaForCausalLM':
+            base_model = KVLlamaForCausalLM.from_pretrained(
+                medusa_config.base_model_name_or_path, **kwargs
+            )
+        elif model_type == 'Qwen2ForCausalLM':
+            base_model = KVQwen2ForCausalLM.from_pretrained(
+                medusa_config.base_model_name_or_path, **kwargs
+            )
 
         model = cls(
             base_model,
